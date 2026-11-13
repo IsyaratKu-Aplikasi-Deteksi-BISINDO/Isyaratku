@@ -36,19 +36,17 @@ class MainActivity : FlutterActivity() {
     private val inferenceExecutor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    // Simpan satu frame untuk pemeriksaan orientasi.
     private var debugFrameSaved = false
 
     companion object {
         private const val TARGET_WIDTH = 640
         private const val TARGET_HEIGHT = 360
 
-        // Rotasi sementara untuk pengujian.
+        // Dipertahankan sementara sampai orientasi kamera diverifikasi.
         private const val TEST_ROTATION = 0
 
         private const val TAG = "BISINDO_CAMERA"
 
-        // Dimensi fitur model BISINDO.
         private const val BODY_FEATURES = 24
         private const val HAND_FEATURES = 42
         private const val BODY_RIGHT_FEATURES = 66
@@ -64,9 +62,6 @@ class MainActivity : FlutterActivity() {
 
             when (call.method) {
 
-                // =========================================
-                // INITIALIZE MEDIAPIPE
-                // =========================================
                 "initializeHolistic" -> {
                     inferenceExecutor.execute {
                         try {
@@ -107,9 +102,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // =========================================
-                // PROCESS CAMERA FRAME
-                // =========================================
                 "processFrame" -> {
 
                     val width = call.argument<Int>("width")
@@ -155,9 +147,7 @@ class MainActivity : FlutterActivity() {
                                     "MediaPipe belum diinisialisasi"
                                 )
 
-                            // =================================
-                            // 1. CONVERT YUV TO NV21
-                            // =================================
+                            // 1. Convert YUV to NV21
                             val nv21 = yuv420ToNv21(
                                 width,
                                 height,
@@ -172,9 +162,7 @@ class MainActivity : FlutterActivity() {
                                 vPixelStride
                             )
 
-                            // =================================
-                            // 2. CONVERT NV21 TO JPEG
-                            // =================================
+                            // 2. Convert NV21 to JPEG
                             val output = ByteArrayOutputStream()
 
                             val yuvImage = YuvImage(
@@ -197,9 +185,7 @@ class MainActivity : FlutterActivity() {
                                 )
                             }
 
-                            // =================================
-                            // 3. DECODE JPEG TO BITMAP
-                            // =================================
+                            // 3. Decode JPEG
                             val decodedBitmap =
                                 BitmapFactory.decodeByteArray(
                                     output.toByteArray(),
@@ -209,17 +195,15 @@ class MainActivity : FlutterActivity() {
                                     "Gagal membaca gambar kamera"
                                 )
 
+                            bitmap = decodedBitmap
+
                             Log.d(
                                 TAG,
                                 "Bitmap sebelum resize: " +
                                     "${decodedBitmap.width} x ${decodedBitmap.height}"
                             )
 
-                            bitmap = decodedBitmap
-
-                            // =================================
-                            // 4. SAVE DEBUG IMAGE BEFORE RESIZE
-                            // =================================
+                            // 4. Save debug image
                             val picturesDir =
                                 getExternalFilesDir(
                                     Environment.DIRECTORY_PICTURES
@@ -266,9 +250,7 @@ class MainActivity : FlutterActivity() {
                                 )
                             }
 
-                            // =================================
-                            // 5. RESIZE TO 640 x 360
-                            // =================================
+                            // 5. Resize
                             val resizedBitmap = Bitmap.createScaledBitmap(
                                 decodedBitmap,
                                 TARGET_WIDTH,
@@ -288,9 +270,7 @@ class MainActivity : FlutterActivity() {
                                     "${resizedBitmap.width} x ${resizedBitmap.height}"
                             )
 
-                            // =================================
-                            // 6. SAVE DEBUG IMAGE AFTER RESIZE
-                            // =================================
+                            // 6. Save resized image
                             val resizedDebugFile = File(
                                 debugDir,
                                 "frame_after_resize.jpg"
@@ -298,17 +278,11 @@ class MainActivity : FlutterActivity() {
 
                             if (!resizedDebugFile.exists()) {
                                 FileOutputStream(resizedDebugFile).use { stream ->
-                                    val saved = resizedBitmap.compress(
+                                    resizedBitmap.compress(
                                         Bitmap.CompressFormat.JPEG,
                                         95,
                                         stream
                                     )
-
-                                    if (!saved) {
-                                        throw IllegalStateException(
-                                            "Gagal menyimpan gambar setelah resize"
-                                        )
-                                    }
                                 }
 
                                 Log.d(
@@ -317,9 +291,7 @@ class MainActivity : FlutterActivity() {
                                 )
                             }
 
-                            // =================================
-                            // 7. MEDIAPIPE IMAGE
-                            // =================================
+                            // 7. MediaPipe image
                             val mpImage =
                                 BitmapImageBuilder(resizedBitmap).build()
 
@@ -335,110 +307,29 @@ class MainActivity : FlutterActivity() {
 
                             Log.d(
                                 TAG,
-                                "Rotation MediaPipe yang dipakai: $TEST_ROTATION"
+                                "Rotation MediaPipe: $TEST_ROTATION"
                             )
 
-                            // =================================
-                            // 8. MEDIAPIPE DETECTION
-                            // =================================
+                            // 8. Detection
                             val detection = landmarker.detect(
                                 mpImage,
                                 imageOptions
                             )
 
                             val pose = detection.poseLandmarks()
-
-                            Log.d(
-                                TAG,
-                                "Jumlah Pose Landmarks: ${pose.size}"
-                            )
-
-                            // =================================
-                            // 9. DEBUG POSISI LANDMARK
-                            // =================================
-                            if (pose.size >= 25) {
-
-                                val debugPoints = listOf(
-                                    "Nose" to 0,
-                                    "Right Shoulder" to 11,
-                                    "Left Shoulder" to 12,
-                                    "Right Hip" to 23,
-                                    "Left Hip" to 24
-                                )
-
-                                Log.d(
-                                    TAG,
-                                    "========== DEBUG LANDMARK =========="
-                                )
-
-                                for ((name, index) in debugPoints) {
-                                    val point = pose[index]
-
-                                    Log.d(
-                                        TAG,
-                                        "$name: X=${point.x()}, Y=${point.y()}"
-                                    )
-                                }
-
-                                val shoulderCenterX =
-                                    (pose[11].x() + pose[12].x()) / 2f
-
-                                val shoulderCenterY =
-                                    (pose[11].y() + pose[12].y()) / 2f
-
-                                val hipCenterX =
-                                    (pose[23].x() + pose[24].x()) / 2f
-
-                                val hipCenterY =
-                                    (pose[23].y() + pose[24].y()) / 2f
-
-                                Log.d(
-                                    TAG,
-                                    "========== BODY ORIENTATION =========="
-                                )
-
-                                Log.d(
-                                    TAG,
-                                    "Shoulder Center: X=$shoulderCenterX, Y=$shoulderCenterY"
-                                )
-
-                                Log.d(
-                                    TAG,
-                                    "Hip Center: X=$hipCenterX, Y=$hipCenterY"
-                                )
-
-                                Log.d(
-                                    TAG,
-                                    "Head-to-Hip Delta X: ${pose[0].x() - hipCenterX}"
-                                )
-
-                                Log.d(
-                                    TAG,
-                                    "Head-to-Hip Delta Y: ${pose[0].y() - hipCenterY}"
-                                )
-
-                                Log.d(
-                                    TAG,
-                                    "======================================"
-                                )
-                            } else {
-                                Log.w(
-                                    TAG,
-                                    "Pose landmarks tidak lengkap: ${pose.size}"
-                                )
-                            }
-
                             val leftHand = detection.leftHandLandmarks()
                             val rightHand = detection.rightHandLandmarks()
 
-                            // =================================
-                            // 10. EXTRACT COORDINATES
-                            // =================================
+                            Log.d(
+                                TAG,
+                                "Pose=${pose.size}, " +
+                                    "LeftHand=${leftHand.size}, " +
+                                    "RightHand=${rightHand.size}"
+                            )
+
+                            // 9. Extract coordinates
                             val bodyCoordinates =
                                 extractBodyCoordinates(pose)
-
-                            val leftHandDetected = leftHand.size >= 21
-                            val rightHandDetected = rightHand.size >= 21
 
                             val leftHandCoordinates =
                                 extractHandCoordinates(leftHand)
@@ -446,13 +337,13 @@ class MainActivity : FlutterActivity() {
                             val rightHandCoordinates =
                                 extractHandCoordinates(rightHand)
 
-                            // =================================
-                            // 11. SELECT BODY + RIGHT HAND (66D)
-                            // =================================
+                            val leftHandDetected = leftHand.size >= 21
+                            val rightHandDetected = rightHand.size >= 21
+
+                            // 10. Body + Right Hand
                             val bodyRightCoordinates =
                                 bodyCoordinates + rightHandCoordinates
 
-                            // Validasi jumlah fitur Body-Right.
                             if (
                                 bodyCoordinates.size != BODY_FEATURES ||
                                 rightHandCoordinates.size != HAND_FEATURES ||
@@ -466,14 +357,7 @@ class MainActivity : FlutterActivity() {
                                 )
                             }
 
-                            Log.d(
-                                TAG,
-                                "Body-Right Feature Count: ${bodyRightCoordinates.size}"
-                            )
-
-                            // =================================
-                            // 12. RESPONSE TO FLUTTER
-                            // =================================
+                            // 11. Response
                             val response = mapOf(
                                 "pose" to pose.size,
                                 "leftHand" to leftHand.size,
@@ -486,7 +370,6 @@ class MainActivity : FlutterActivity() {
                                 "leftHandCoordinates" to leftHandCoordinates,
                                 "rightHandCoordinates" to rightHandCoordinates,
 
-                                // Fitur utama untuk model BISINDO.
                                 "bodyRightCoordinates" to bodyRightCoordinates,
                                 "featureCount" to bodyRightCoordinates.size
                             )
@@ -496,11 +379,7 @@ class MainActivity : FlutterActivity() {
                             }
 
                         } catch (e: Exception) {
-                            Log.e(
-                                TAG,
-                                "ERROR PROCESS FRAME",
-                                e
-                            )
+                            Log.e(TAG, "ERROR PROCESS FRAME", e)
 
                             mainHandler.post {
                                 result.error(
@@ -515,9 +394,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // =========================================
-                // CLOSE MEDIAPIPE
-                // =========================================
                 "closeHolistic" -> {
                     inferenceExecutor.execute {
                         try {
@@ -544,9 +420,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // =============================================
-    // BODY LANDMARKS (24D)
-    // =============================================
+    // BODY 24D
     private fun extractBodyCoordinates(
         pose: List<NormalizedLandmark>
     ): List<Float> {
@@ -578,7 +452,7 @@ class MainActivity : FlutterActivity() {
             coordinates.add(0f)
         }
 
-        // Body map
+        // Body mapping
         listOf(
             5, 2, 8, 7, 12, 11, 14, 13, 16, 15
         ).forEach { index ->
@@ -588,9 +462,7 @@ class MainActivity : FlutterActivity() {
         return coordinates
     }
 
-    // =============================================
-    // HAND LANDMARKS (42D)
-    // =============================================
+    // HAND 42D
     private fun extractHandCoordinates(
         landmarks: List<NormalizedLandmark>
     ): List<Float> {
@@ -615,9 +487,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // =============================================
-    // CONVERT YUV420 TO NV21
-    // =============================================
+    // YUV420 TO NV21
     private fun yuv420ToNv21(
         width: Int,
         height: Int,
@@ -639,7 +509,7 @@ class MainActivity : FlutterActivity() {
         val frameSize = width * height
         val nv21 = ByteArray(frameSize + frameSize / 2)
 
-        // Y CHANNEL
+        // Y
         for (row in 0 until height) {
             for (col in 0 until width) {
                 val index =
@@ -653,7 +523,7 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // UV CHANNEL
+        // UV
         var outputIndex = frameSize
 
         for (row in 0 until height / 2) {
@@ -680,11 +550,7 @@ class MainActivity : FlutterActivity() {
         return nv21
     }
 
-    // =============================================
-    // DESTROY
-    // =============================================
     override fun onDestroy() {
-
         inferenceExecutor.execute {
             holisticLandmarker?.close()
             holisticLandmarker = null

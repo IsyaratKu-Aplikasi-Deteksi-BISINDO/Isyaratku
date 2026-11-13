@@ -183,7 +183,9 @@ class DetectionService {
       final x = body[i];
       final y = body[i + 1];
 
-      if (x == 0.0) {
+      // DISESUAIKAN DENGAN PYTHON:
+      // Titik tidak valid jika x ATAU y bernilai 0.
+      if (x == 0.0 || y == 0.0) {
         output.add(0.0);
         output.add(0.0);
         continue;
