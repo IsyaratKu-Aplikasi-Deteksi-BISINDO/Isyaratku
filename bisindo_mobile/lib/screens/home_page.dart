@@ -1,6 +1,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -328,7 +329,6 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    // Hitung raw non-finite seluruh frame satu kali.
     for (final frame in raw) {
       for (final value in frame) {
         if (!value.isFinite) {
@@ -337,7 +337,6 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    // Hitung normalized non-finite seluruh frame.
     for (final frame in normalized) {
       for (final value in frame) {
         if (!value.isFinite) {
@@ -1225,6 +1224,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   // =====================================================
+  // TOGGLE DETECTION
+  // =====================================================
+
+  Future<void> _toggleDetection() async {
+    if (isLoading) return;
+
+    if (isDetecting) {
+      await stopCamera();
+    } else {
+      await startCamera();
+    }
+  }
+
+  // =====================================================
   // DISPOSE
   // =====================================================
 
@@ -1355,13 +1368,14 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: const Color(0xFF145DA0),
         foregroundColor: Colors.white,
         title: const Text(
-          'BISINDO',
+          'IsyaratKu',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
+
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1373,11 +1387,14 @@ class _HomePageState extends State<HomePage> {
                   color: Color(0xFF183153),
                 ),
               ),
+
               const SizedBox(height: 6),
+
               const Text(
                 'Terjemahkan gerakan BISINDO secara langsung.',
                 style: TextStyle(color: Colors.black54),
               ),
+
               const SizedBox(height: 24),
 
               // CAMERA PREVIEW
@@ -1405,7 +1422,9 @@ class _HomePageState extends State<HomePage> {
                               size: 65,
                               color: Colors.white70,
                             ),
+
                           const SizedBox(height: 12),
+
                           Text(
                             isLoading
                                 ? 'Mengaktifkan kamera'
@@ -1416,7 +1435,9 @@ class _HomePageState extends State<HomePage> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+
                           const SizedBox(height: 6),
+
                           Text(
                             cameraStatus,
                             style: const TextStyle(
@@ -1436,78 +1457,23 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
 
-              // CAMERA BUTTONS
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 52,
-                      child: FilledButton.icon(
-                        onPressed: isLoading
-                            ? null
-                            : isDetecting
-                                ? stopCamera
-                                : startCamera,
-                        icon: Icon(
-                          isDetecting
-                              ? Icons.stop
-                              : Icons.play_arrow,
-                        ),
-                        label: Text(
-                          isDetecting
-                              ? 'Berhenti Deteksi'
-                              : 'Mulai Deteksi',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: isDetecting
-                              ? Colors.red.shade700
-                              : const Color(0xFF145DA0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: IconButton.filled(
-                      tooltip: 'Balik Kamera',
-                      onPressed:
-                          isDetecting &&
-                                  !isLoading &&
-                                  _availableCameras.length > 1
-                              ? _switchCamera
-                              : null,
-                      icon: const Icon(
-                        Icons.cameraswitch,
-                        size: 25,
-                      ),
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFF16805D),
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                            Colors.grey.shade300,
-                        disabledForegroundColor:
-                            Colors.grey.shade500,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              // CAMERA SWITCH
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: isDetecting &&
+                          !isLoading &&
+                          _availableCameras.length > 1
+                      ? _switchCamera
+                      : null,
+                  icon: const Icon(Icons.cameraswitch),
+                  label: const Text('Balik Kamera'),
+                ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // PREDICTION RESULT
               const Text(
@@ -1518,7 +1484,9 @@ class _HomePageState extends State<HomePage> {
                   color: Color(0xFF183153),
                 ),
               ),
+
               const SizedBox(height: 12),
+
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -1533,6 +1501,7 @@ class _HomePageState extends State<HomePage> {
                       'Prediksi Kata',
                       style: TextStyle(color: Colors.black54),
                     ),
+
                     const SizedBox(height: 10),
 
                     if (_isPredicting) ...[
@@ -1552,7 +1521,9 @@ class _HomePageState extends State<HomePage> {
                           color: Color(0xFF145DA0),
                         ),
                       ),
+
                       const SizedBox(height: 8),
+
                       Text(
                         'Confidence: '
                         '${(_predictionResult!.confidence * 100).toStringAsFixed(2)}%',
@@ -1561,7 +1532,9 @@ class _HomePageState extends State<HomePage> {
                           color: Colors.black54,
                         ),
                       ),
+
                       const SizedBox(height: 4),
+
                       Text(
                         'Class ID: ${_predictionResult!.classId}',
                         style: const TextStyle(
@@ -1570,8 +1543,9 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
 
-                      // TOMBOL ULANGI SUARA
                       const SizedBox(height: 12),
+
+                      // TOMBOL ULANGI SUARA
                       IconButton.filled(
                         tooltip: 'Ulangi pengucapan',
                         onPressed: _ttsReady
@@ -1596,12 +1570,16 @@ class _HomePageState extends State<HomePage> {
                           color: Color(0xFF145DA0),
                         ),
                       ),
+
                       const SizedBox(height: 8),
+
                       Text(
                         isDetecting
                             ? 'Menunggu sequence 30 frame...'
                             : 'Belum ada hasil prediksi',
-                        style: const TextStyle(color: Colors.black45),
+                        style: const TextStyle(
+                          color: Colors.black45,
+                        ),
                       ),
                     ],
                   ],
@@ -1646,8 +1624,16 @@ class _HomePageState extends State<HomePage> {
               ),
 
               coordinateSection('BODY RAW', bodyCoordinates),
-              coordinateSection('LEFT HAND RAW', leftHandCoordinates),
-              coordinateSection('RIGHT HAND RAW', rightHandCoordinates),
+
+              coordinateSection(
+                'LEFT HAND RAW',
+                leftHandCoordinates,
+              ),
+
+              coordinateSection(
+                'RIGHT HAND RAW',
+                rightHandCoordinates,
+              ),
 
               const SizedBox(height: 20),
 
@@ -1710,7 +1696,9 @@ class _HomePageState extends State<HomePage> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.file_download_outlined),
+                      : const Icon(
+                          Icons.file_download_outlined,
+                        ),
                   label: Text(
                     _isExportingJson
                         ? 'Mengekspor JSON...'
@@ -1727,6 +1715,54 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 20),
             ],
+          ),
+        ),
+      ),
+
+      // =================================================
+      // FLOATING ACTION BUTTON
+      // =================================================
+
+      floatingActionButtonLocation:
+          FloatingActionButtonLocation.endFloat,
+
+      floatingActionButton: SizedBox(
+        height: 56,
+        child: FloatingActionButton.extended(
+          heroTag: 'main_detection_button',
+
+          onPressed: isLoading ? null : _toggleDetection,
+
+          backgroundColor: isDetecting
+              ? Colors.red.shade700
+              : const Color(0xFF145DA0),
+
+          foregroundColor: Colors.white,
+
+          icon: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Icon(
+                  isDetecting
+                      ? Icons.stop
+                      : Icons.play_arrow,
+                ),
+
+          label: Text(
+            isLoading
+                ? 'Memproses...'
+                : isDetecting
+                    ? 'Stop'
+                    : 'Mulai Deteksi',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),

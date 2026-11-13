@@ -1,4 +1,4 @@
-
+import time
 import numpy as np
 import tensorflow as tf
 from pathlib import Path
@@ -11,7 +11,7 @@ from pathlib import Path
 MODEL_PATH = (
     Path(__file__).resolve().parent.parent
     / "models"
-    / "si1_body_right_random_resampling_seed45.keras"
+    / "si2_body_right_random_resampling_seed52.keras"
 )
 
 SEQUENCE_LENGTH = 30
@@ -188,12 +188,29 @@ def predict(sequence):
     # 6. MODEL PREDICTION
     # -------------------------------------------------
 
+    # -------------------------------------------------
+# 6. MODEL PREDICTION + INFERENCE LATENCY
+# -------------------------------------------------
+
     batch_data = np.expand_dims(data, axis=0)
+
+    start_time = time.perf_counter()
 
     probabilities = model.predict(
         batch_data,
         verbose=0
     )[0]
+
+    end_time = time.perf_counter()
+
+    inference_latency = (
+        end_time - start_time
+    ) * 1000
+
+    print(
+    f"Inference Latency: "
+    f"{inference_latency:.2f} ms"
+)
 
     # -------------------------------------------------
     # 7. VALIDATE MODEL OUTPUT
