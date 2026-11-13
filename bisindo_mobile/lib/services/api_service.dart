@@ -35,7 +35,7 @@ class PredictionResult {
 
 class ApiService {
   // Alamat IP komputer yang menjalankan FastAPI.
-  static const String baseUrl = 'http://192.168.1.32:8000';
+  static const String baseUrl = 'http://192.168.1.2:8000';
 
   static const String predictEndpoint = '/v1/predict';
 

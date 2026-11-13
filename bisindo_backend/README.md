@@ -1,165 +1,373 @@
 # BISINDO Backend
 
-Panduan menjalankan backend FastAPI untuk aplikasi BISINDO Mobile.
+Backend FastAPI untuk aplikasi BISINDO Mobile yang digunakan untuk melakukan prediksi bahasa isyarat menggunakan model deep learning berbasis LSTM.
 
-## 1. Lokasi proyek
+Backend menerima sequence landmark hasil ekstraksi MediaPipe Holistic dari aplikasi Android, kemudian memprosesnya menggunakan model yang telah dilatih.
+
+## 1. Lokasi Proyek
 
 Folder backend:
 
-``` text
+```text
 C:\coding\IsyaratKu\bisindo_backend
 ```
 
-Struktur folder yang sudah diketahui:
+Struktur direktori:
 
-``` text
+```text
 bisindo_backend/
 ├── app/
 │   ├── main.py
 │   ├── models/
+│   │   ├── si1_best.keras
+│   │   └── si1_body_right_random_resampling_seed45.keras
 │   ├── services/
+│   │   └── model_service.py
 │   └── __init__.py
-└── venv/
+├── venv/
+├── requirements.txt
+├── Dockerfile
+├── .dockerignore
+└── README.md
 ```
 
-File utama FastAPI adalah `app/main.py`.
+File utama:
+- `app/main.py`: konfigurasi dan endpoint FastAPI.
+- `app/services/model_service.py`: pemuatan model dan proses prediksi.
+- `app/models/`: penyimpanan model hasil pelatihan.
+- `requirements.txt`: daftar dependensi Python.
+- `Dockerfile`: konfigurasi pembuatan Docker image.
 
-## 2. Menjalankan backend
+Model yang digunakan oleh backend saat ini:
 
-Buka PowerShell, lalu masuk ke folder backend:
+```text
+si1_body_right_random_resampling_seed45.keras
+```
 
-``` powershell
+## 2. Teknologi yang Digunakan
+
+- Python 3.11
+- FastAPI
+- Uvicorn
+- TensorFlow / Keras
+- NumPy
+- Docker
+
+## 3. Arsitektur Backend
+
+Alur komunikasi aplikasi:
+
+```text
+Android Application
+        |
+        v
+MediaPipe Holistic
+        |
+        v
+Landmark Extraction
+        |
+        v
+Sequence 30 Frames
+        |
+        v
+66 Features per Frame
+        |
+        v
+HTTP POST Request
+        |
+        v
+FastAPI Backend
+        |
+        v
+LSTM Model
+        |
+        v
+Prediction Result
+        |
+        v
+Android Application
+```
+
+Input model terdiri dari:
+- Panjang sequence: 30 frame.
+- Jumlah fitur: 66 fitur per frame.
+- Total nilai fitur: 1.980.
+
+## 4. Menjalankan Backend Menggunakan Docker
+
+Docker merupakan metode deployment backend yang sudah berhasil diuji pada lingkungan pengembangan.
+
+### 4.1 Menjalankan Docker Desktop
+
+Pastikan Docker Desktop sudah terinstal dan berjalan.
+
+Periksa Docker melalui PowerShell:
+
+```powershell
+docker --version
+docker info
+```
+
+### 4.2 Build Docker Image
+
+Masuk ke folder backend:
+
+```powershell
 cd C:\coding\IsyaratKu\bisindo_backend
 ```
 
-Aktifkan virtual environment jika belum aktif:
+Build image:
 
-``` powershell
+```powershell
+docker build -t bisindo-backend .
+```
+
+Proses ini akan membuat Docker image bernama `bisindo-backend`.
+
+### 4.3 Menjalankan Container
+
+Jalankan perintah:
+
+```powershell
+docker run -d --name bisindo-api -p 8000:8000 bisindo-backend:latest
+```
+
+Keterangan:
+- `-d`: menjalankan container di background.
+- `--name bisindo-api`: memberikan nama container.
+- `-p 8000:8000`: menghubungkan port 8000 komputer dengan port 8000 container.
+
+### 4.4 Memeriksa Status Container
+
+```powershell
+docker ps
+```
+
+Pastikan container `bisindo-api` memiliki status `Up`.
+
+### 4.5 Memeriksa Log Backend
+
+```powershell
+docker logs bisindo-api
+```
+
+### 4.6 Memeriksa Koneksi Backend
+
+Buka PowerShell:
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:8000/health -Method GET
+```
+
+Jika berhasil, backend memberikan respons:
+
+```json
+{
+  "status": "api siap di gunakan",
+  "service": "BISINDO Mobile API"
+}
+```
+
+Dokumentasi API dapat dibuka melalui browser:
+
+```text
+http://localhost:8000/docs
+```
+
+## 5. Menghubungkan Aplikasi Android
+
+Aplikasi Android dapat mengakses backend melalui jaringan Wi-Fi yang sama dengan komputer.
+
+### 5.1 Memeriksa IP Address Komputer
+
+Jalankan:
+
+```powershell
+ipconfig
+```
+
+Cari bagian:
+
+```text
+Wireless LAN adapter Wi-Fi
+```
+
+Catat alamat `IPv4 Address`.
+
+Contoh alamat yang digunakan pada pengujian:
+
+```text
+192.168.1.2
+```
+
+Catatan: IP tersebut merupakan alamat komputer pada jaringan Wi-Fi saat pengujian. Alamat dapat berubah sesuai konfigurasi jaringan.
+
+### 5.2 Menguji Koneksi dari Android
+
+Pastikan HP Android dan komputer terhubung ke jaringan Wi-Fi yang sama.
+
+Buka browser Android:
+
+```text
+http://192.168.1.2:8000/health
+```
+
+Jika respons health check muncul, HP berhasil mengakses backend.
+
+### 5.3 Konfigurasi ApiService Flutter
+
+Pada file `ApiService.dart`, konfigurasi alamat backend:
+
+```dart
+static const String baseUrl = 'http://192.168.1.2:8000';
+```
+
+Endpoint prediksi:
+
+```dart
+static const String predictEndpoint = '/v1/predict';
+```
+
+Gunakan IPv4 aktual komputer jika alamat jaringan berubah.
+
+## 6. Dokumentasi API
+
+Backend menyediakan dua endpoint utama.
+
+### 6.1 Health Check
+
+| Informasi | Nilai |
+|---|---|
+| Method | GET |
+| Endpoint | `/health` |
+| Fungsi | Memeriksa status backend |
+
+Contoh request:
+
+```http
+GET /health
+```
+
+Contoh response:
+
+```json
+{
+  "status": "api siap di gunakan",
+  "service": "BISINDO Mobile API"
+}
+```
+
+### 6.2 Prediction
+
+| Informasi | Nilai |
+|---|---|
+| Method | POST |
+| Endpoint | `/v1/predict` |
+| Content-Type | application/json |
+| Fungsi | Melakukan prediksi bahasa isyarat |
+
+Format request:
+
+```json
+{
+  "sequence": [
+    [0.1, 0.2, 0.3]
+  ]
+}
+```
+
+Catatan: Contoh di atas hanya ilustrasi struktur JSON. Request sebenarnya harus berisi tepat 30 frame dengan masing-masing 66 fitur numerik.
+
+Contoh response:
+
+```json
+{
+  "success": true,
+  "prediction": {
+    "class_id": 0,
+    "label": "air",
+    "confidence": 0.95
+  }
+}
+```
+
+Nilai confidence di atas hanya contoh format response, bukan hasil pengujian tertentu.
+
+## 7. Menjalankan Backend Secara Lokal Tanpa Docker
+
+Backend juga dapat dijalankan langsung menggunakan Python virtual environment.
+
+Masuk ke folder backend:
+
+```powershell
+cd C:\coding\IsyaratKu\bisindo_backend
+```
+
+Aktifkan virtual environment:
+
+```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-Jika berhasil, prompt PowerShell akan diawali dengan `(venv)`.
+Jalankan Uvicorn:
 
-Jalankan FastAPI:
-
-``` powershell
+```powershell
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Biarkan terminal ini tetap terbuka selama aplikasi mobile menggunakan
-backend.
+Biarkan terminal tetap terbuka selama backend digunakan.
 
-## 3. Memastikan backend aktif
+## 8. Menghentikan dan Menjalankan Kembali Docker
 
-Saat berhasil, Uvicorn akan menampilkan pesan yang kurang lebih seperti:
+### Menghentikan container
 
-``` text
-Uvicorn running on http://0.0.0.0:8000
+```powershell
+docker stop bisindo-api
 ```
 
-Buka alamat berikut dari browser laptop:
+### Menjalankan kembali container
 
--   Halaman backend: http://127.0.0.1:8000
--   Dokumentasi API: http://127.0.0.1:8000/docs
-
-Jika halaman dokumentasi API terbuka, server dapat diakses dari laptop.
-
-## 4. Menghubungkan aplikasi Android
-
-Agar HP Android dapat mengakses backend di laptop:
-
-1.  Pastikan laptop dan HP terhubung ke jaringan Wi-Fi yang sama.
-
-2.  Jalankan backend dengan `--host 0.0.0.0` seperti command di atas.
-
-3.  Cari alamat IPv4 laptop menggunakan PowerShell:
-
-    ``` powershell
-    ipconfig
-    ```
-
-4.  Cari bagian adapter Wi-Fi yang sedang digunakan, lalu catat
-    `IPv4 Address`.
-
-5.  Pastikan konfigurasi alamat API di aplikasi Flutter menggunakan
-    alamat IP laptop dan port `8000`, bukan `127.0.0.1` atau
-    `localhost`.
-
-Format alamat dari HP:
-
-``` text
-http://ALAMAT_IP_LAPTOP:8000
+```powershell
+docker start bisindo-api
 ```
 
-Contoh format saja (bukan alamat laptop yang sebenarnya):
+### Menghapus container
 
-``` text
-http://192.168.1.10:8000
+Jika memang ingin menghapus container:
+
+```powershell
+docker stop bisindo-api
+docker rm bisindo-api
 ```
 
-Gunakan alamat IP aktual dari hasil `ipconfig`. Path endpoint API harus
-mengikuti endpoint yang didefinisikan di `app/main.py` dan konfigurasi
-`ApiService` pada aplikasi Flutter.
+Docker image tidak ikut terhapus ketika container dihapus.
 
-## 5. Menghentikan backend
+## 9. Troubleshooting
 
-Untuk menghentikan server, fokuskan terminal yang menjalankan Uvicorn,
-lalu tekan:
+### Container tidak berjalan
 
-``` text
-Ctrl + C
+Periksa status:
+
+```powershell
+docker ps -a
 ```
 
-## 6. Menjalankan kembali di lain waktu
+Periksa log:
 
-Setiap kali ingin menggunakan backend:
-
-1.  Buka PowerShell.
-2.  Masuk ke folder `C:\coding\IsyaratKu\bisindo_backend`.
-3.  Aktifkan `venv` jika belum aktif.
-4.  Jalankan command Uvicorn pada bagian 2.
-5.  Biarkan terminal tetap berjalan saat aplikasi digunakan.
-
-## 7. Troubleshooting singkat
-
-### Perintah `uvicorn` tidak dikenali
-
-Pastikan virtual environment aktif. Gunakan bentuk command berikut agar
-Python dari environment yang aktif menjalankan Uvicorn:
-
-``` powershell
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```powershell
+docker logs bisindo-api
 ```
 
 ### Port 8000 sedang digunakan
 
-Artinya kemungkinan ada proses lain yang sedang memakai port tersebut.
-Periksa proses yang memakai port 8000 sebelum menghentikannya atau
-memilih port lain. Jika port diganti, alamat di aplikasi Flutter juga
-harus disesuaikan.
+Periksa proses yang menggunakan port:
 
-### HP tidak bisa terhubung ke backend
-
-Periksa hal-hal berikut:
-
--   Backend masih berjalan dan terminal Uvicorn belum ditutup.
--   Backend dijalankan dengan `--host 0.0.0.0`.
--   Laptop dan HP berada pada jaringan yang sama.
--   Aplikasi Flutter menggunakan IPv4 laptop, bukan `localhost` atau
-    `127.0.0.1`.
--   Firewall Windows tidak memblokir koneksi masuk pada port 8000.
-
-### Dokumentasi `/docs` tidak terbuka
-
-Pastikan server sudah menampilkan pesan Uvicorn berjalan dan periksa
-pesan error pada terminal.
-
-------------------------------------------------------------------------
-
-**Command utama yang perlu diingat:**
-
-``` powershell
-cd C:\coding\IsyaratKu\bisindo_backend
-.\venv\Scripts\Activate.ps1
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```powershell
+netstat -ano | findstr :8000
 ```
+
+Pastikan tidak ada proses lain yang menggunakan port tersebut.
+
+### HP tidak dapat mengakses backend
+
+Per
